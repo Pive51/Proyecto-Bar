@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>BarPOS - Punto de Venta 🍻</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* ---------- Ajustes generales mobile-first ---------- */
+      body { -webkit-tap-highlight-color: transparent; }
+
+      /* ---------- Carrusel horizontal de productos (solo celular) ---------- */
+      .mobile-product-carousel {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 16px;
+        padding: 8px 6px 18px 6px;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+      }
+      .mobile-product-carousel::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+      .mobile-product-item {
+        flex: 0 0 auto;
+        width: 92px;
+        scroll-snap-align: start;
+        text-align: center;
+      }
+
+      .mobile-product-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        margin: 0 auto 6px auto;
+        overflow: hidden;
+        border: 3px solid #ffc107;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+        background: #343a40;
+        transition: transform 0.15s ease;
+      }
+      .mobile-product-circle:active { transform: scale(0.93); }
+      .mobile-product-circle img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .mobile-product-name {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+      }
+
+      .mobile-product-stock {
+        font-size: 0.65rem;
+        display: inline-block;
+        margin-bottom: 6px;
+      }
+
+      .mobile-btn-agregar {
+        font-size: 0.7rem;
+        padding: 3px 0;
+        border-radius: 20px;
+        line-height: 1.2;
+      }
+
+      /* Pistas visuales de que hay más productos hacia los lados */
+      .carousel-wrapper { position: relative; }
+      .carousel-wrapper::after {
+        content: "";
+        position: absolute;
+        top: 0; right: 0; bottom: 18px;
+        width: 28px;
+        background: linear-gradient(to right, rgba(33,37,41,0), #212529);
+        pointer-events: none;
+      }
+
+      /* ---------- Mobile tweaks generales (<768px) ---------- */
+      @media (max-width: 767.98px) {
+        .container-fluid { padding-left: 10px; padding-right: 10px; }
+        .navbar-brand { font-size: 1.3rem !important; }
+
+        /* La cuenta actual deja de ser "sticky" y se acomoda debajo del menú */
+        .cuenta-actual-card { position: static !important; margin-top: 4px; }
+
+        #total-pagar { font-size: 1.15rem; }
+        .card-footer .btn-lg { font-size: 1rem; padding: 10px; }
+
+        table.table-dark td, table.table-dark th { font-size: 0.82rem; padding: 0.4rem; }
+      }
+    </style>
+  </head>
+  <body class="bg-dark text-light" style="min-height: 100vh">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary shadow mb-4">
+      <div class="container-fluid px-3 px-md-4">
+        <a class="navbar-brand fw-bold text-warning fs-3" href="/dashboard">BarPOS 🍻</a>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarBarPOS"
+          aria-controls="navbarBarPOS"
+          aria-expanded="false"
+          aria-label="Abrir menú"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarBarPOS">
+          <div class="navbar-nav mx-auto mt-2 mt-lg-0">
+            {% if rol == 'Administrador' %}
+            <a class="nav-link btn btn-outline-warning btn-sm mx-1 my-1 px-3 text-dark fw-bold"
+               href="/usuarios">
+                <i class="fa-solid fa-users-gear"></i> Personal (CRUD)
+            </a>
+            {% endif %}
+
+            <a class="nav-link text-white btn btn-outline-warning btn-sm mx-1 my-1 px-3 fw-bold"
+               href="/productos">
+                <i class="fa-solid fa-boxes-stacked"></i> Gestion de Productos
+            </a>
+          </div>
+
+          <div class="d-flex align-items-center mt-2 mt-lg-0">
+            <div class="text-end me-3">
+              <span class="badge bg-warning text-dark fw-bold">{{ rol }}</span>
+              <span class="d-block small text-white-50">{{ usuario }}</span>
+            </div>
+            <a href="/auth/logout" class="btn btn-danger btn-sm">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-3 px-md-4">
+      <div class="row">
+        <div class="col-lg-8 col-md-7 mb-4">
+          <h3 class="text-warning fw-bold mb-3">
+            <i class="fa-solid fa-beer-mug-empty"></i> Menú del Bar
+          </h3>
+
+          <!-- ============ VERSIÓN CELULAR: carrusel circular horizontal ============ -->
+          <div class="d-flex d-md-none carousel-wrapper mb-2">
+            <div class="mobile-product-carousel">
+              {% for p in productos %}
+              <div class="mobile-product-item">
+                <div
+                  class="mobile-product-circle div-imagen-pos"
+                  data-id="{{ p.id }}"
+                  data-nombre="{{ p.nombre }}"
+                  data-precio="{{ p.precio }}"
+                  data-stock="{{ p.stock }}"
+                >
+                  {% if p.codigo == 'P001' %}
+                  <img src="/static/img/pilsener.png" alt="{{ p.nombre }}" />
+                  {% elif p.codigo == 'P002' %}
+                  <img src="/static/img/clubPremium.png" alt="{{ p.nombre }}" />
+                  {% elif p.codigo == 'P003' %}
+                  <img src="/static/img/colacola.png" alt="{{ p.nombre }}" />
+                  {% elif p.codigo == 'P004' %}
+                  <img src="/static/img/dasani.png" alt="{{ p.nombre }}" />
+                  {% elif p.codigo == 'P005' %}
+                  <img src="/static/img/agogo.png" alt="{{ p.nombre }}" />
+                  {% else %}
+                  <img
+                    src="https://placehold.co/160x160/343a40/ffc107?text={{ p.nombre }}"
+                    alt="{{ p.nombre }}"
+                  />
+                  {% endif %}
+                </div>
+
+                <div class="mobile-product-name">{{ p.nombre }}</div>
+                <span
+                  class="badge stock-badge mobile-product-stock {% if p.stock > 10 %}bg-success{% else %}bg-danger{% endif %}"
+                  data-pid="{{ p.id }}"
+                >
+                  {{ p.stock }} u
+                </span>
+
+                <button
+                  class="btn btn-warning w-100 fw-bold text-dark mobile-btn-agregar btn-agregar-pos"
+                  data-id="{{ p.id }}"
+                  data-nombre="{{ p.nombre }}"
+                  data-precio="{{ p.precio }}"
+                  data-stock="{{ p.stock }}"
+                >
+                  <i class="fa-solid fa-plus"></i> Agregar
+                </button>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- ============ VERSIÓN ESCRITORIO/TABLET: grilla de tarjetas ============ -->
+          <div class="d-none d-md-flex row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+            {% for p in productos %}
+            <div class="col">
+              <div
+                class="card bg-secondary text-white h-100 border-0 shadow-sm"
+                style="border-radius: 12px; overflow: hidden"
+              >
+                <div
+                  class="div-imagen-pos"
+                  style="cursor: pointer"
+                  data-id="{{ p.id }}"
+                  data-nombre="{{ p.nombre }}"
+                  data-precio="{{ p.precio }}"
+                  data-stock="{{ p.stock }}"
+                >
+                  {% if p.codigo == 'P001' %}
+                  <img
+                    src="/static/img/pilsener.png"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover; object-position: bottom;"
+                  />
+                  {% elif p.codigo == 'P002' %}
+                  <img
+                    src="/static/img/clubPremium.png"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover; object-position: bottom;"
+                  />
+                  {% elif p.codigo == 'P003' %}
+                  <img
+                    src="/static/img/colacola.png"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover; object-position: center;"
+                  />
+                  {% elif p.codigo == 'P004' %}
+                  <img
+                    src="/static/img/dasani.png"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover; object-position: center;"
+                  />
+                  {% elif p.codigo == 'P005' %}
+                  <img
+                    src="/static/img/agogo.png"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover; object-position: center;"
+                  />
+                  {% else %}
+                  <img
+                    src="https://placehold.co/300x140/343a40/ffc107?text={{ p.nombre }}"
+                    class="card-img-top"
+                    alt="{{ p.nombre }}"
+                    style="height: 140px; object-fit: cover"
+                  />
+                  {% endif %}
+                </div>
+
+                <div class="card-body d-flex flex-column justify-content-between p-3">
+                  <div>
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                      <h5 class="card-title fw-bold mb-0 text-truncate" style="max-width: 75%">
+                        {{ p.nombre }}
+                      </h5>
+                      <span class="badge bg-dark text-warning fs-6">${{ "%.2f"|format(p.precio) }}</span>
+                    </div>
+                    <p class="card-text small text-white-50 mb-2">
+                      {{ p.descripcion or 'Sin descripción' }}
+                    </p>
+                  </div>
+
+                  <div class="mt-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <small class="text-white-50">Stock:</small>
+                      <span
+                        class="badge stock-badge {% if p.stock > 10 %}bg-success{% else %}bg-danger{% endif %}"
+                        data-pid="{{ p.id }}"
+                      >
+                        {{ p.stock }} u
+                      </span>
+                    </div>
+
+                    <button
+                      class="btn btn-warning w-100 fw-bold text-dark btn-sm btn-agregar-pos"
+                      data-id="{{ p.id }}"
+                      data-nombre="{{ p.nombre }}"
+                      data-precio="{{ p.precio }}"
+                      data-stock="{{ p.stock }}"
+                    >
+                      <i class="fa-solid fa-plus-circle me-1"></i> Agregar a Cuenta
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-5">
+          <div
+            class="card bg-secondary text-white border-0 shadow-lg position-sticky cuenta-actual-card"
+            style="top: 20px; border-radius: 12px"
+          >
+            <div class="card-header bg-dark text-warning fw-bold d-flex justify-content-between align-items-center py-3">
+              <span><i class="fa-solid fa-cash-register me-1"></i> CUENTA ACTUAL</span>
+              <button class="btn btn-sm btn-outline-danger" onclick="vaciarCarrito()">
+                Limpiar
+              </button>
+            </div>
+
+            <div class="card-body p-0" style="max-height: 350px; overflow-y: auto">
+              <table class="table table-dark table-striped mb-0 align-middle text-center">
+                <thead>
+                  <tr>
+                    <th class="text-start" style="width: 40%">Item</th>
+                    <th style="width: 30%">Cantidad</th>
+                    <th style="width: 20%">Total</th>
+                    <th style="width: 10%"></th>
+                  </tr>
+                </thead>
+                <tbody id="detalle-venta">
+                  <tr id="carrito-vacio">
+                    <td colspan="4" class="py-4 text-muted">No hay consumos.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card-footer bg-dark p-3">
+              <div class="mb-3">
+                <label class="form-label small text-white-50 mb-1">Cliente</label>
+                <input
+                  type="text"
+                  id="cliente"
+                  class="form-control form-control-sm bg-secondary text-white border-0"
+                  value="CONSUMIDOR FINAL"
+                />
+              </div>
+              <div class="d-flex justify-content-between fs-5 fw-bold text-warning border-top pt-2 mb-3">
+                <span>TOTAL:</span>
+                <span id="total-pagar">$0.00</span>
+              </div>
+              <button class="btn btn-success w-100 btn-lg fw-bold" onclick="procesarCobro()">
+                REGISTRAR COBRO
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let carrito = [];
+      let stockData = {}; // { idProducto: stockDisponibleActual }
+
+      // -------- Inicializa el stock disponible desde los badges (uno por producto) --------
+      function initStockData() {
+        document.querySelectorAll(".stock-badge").forEach((badge) => {
+          const id = badge.dataset.pid;
+          if (!(id in stockData)) {
+            stockData[id] = parseInt(badge.textContent) || 0;
+          }
+        });
+      }
+
+      // -------- Actualiza TODOS los badges de stock (escritorio + carrusel móvil) --------
+      function actualizarStockPantalla(id, nuevoStock) {
+        stockData[id] = nuevoStock;
+        document.querySelectorAll(`.stock-badge[data-pid="${id}"]`).forEach((badge) => {
+          badge.textContent = `${nuevoStock} u`;
+          if (nuevoStock <= 5) {
+            badge.classList.remove("bg-success");
+            badge.classList.add("bg-danger");
+          } else {
+            badge.classList.remove("bg-danger");
+            badge.classList.add("bg-success");
+          }
+        });
+      }
+
+      function agregarAlCarrito(id, nombre, precio) {
+        const stockActual = stockData[id] ?? 0;
+
+        if (stockActual <= 0) {
+          return alert("¡Ya no queda stock de este producto en la barra! 🚫");
+        }
+
+        let item = carrito.find((p) => p.id === id);
+        if (item) {
+          item.cantidad++;
+        } else {
+          carrito.push({ id, nombre, precio: parseFloat(precio), cantidad: 1 });
+        }
+
+        actualizarStockPantalla(id, stockActual - 1);
+        renderizarCarrito();
+      }
+
+      function cambiarCantidad(id, cambio) {
+        let item = carrito.find((p) => p.id === id);
+        if (!item) return;
+
+        const stockActual = stockData[id] ?? 0;
+
+        if (cambio > 0 && stockActual <= 0) {
+          return alert("Excede el stock disponible en bodega 🚫");
+        }
+
+        item.cantidad += cambio;
+        actualizarStockPantalla(id, stockActual - cambio);
+
+        if (item.cantidad <= 0) {
+          carrito = carrito.filter((p) => p.id !== id);
+        }
+        renderizarCarrito();
+      }
+
+      function eliminarItem(id) {
+        let item = carrito.find((p) => p.id === id);
+        if (item) {
+          const stockActual = stockData[id] ?? 0;
+          actualizarStockPantalla(id, stockActual + item.cantidad);
+          carrito = carrito.filter((p) => p.id !== id);
+          renderizarCarrito();
+        }
+      }
+
+      function vaciarCarrito() {
+        // Devolver todo el stock reservado antes de limpiar
+        carrito.forEach((item) => {
+          const stockActual = stockData[item.id] ?? 0;
+          actualizarStockPantalla(item.id, stockActual + item.cantidad);
+        });
+        carrito = [];
+        renderizarCarrito();
+      }
+
+      function renderizarCarrito() {
+        const tbody = document.getElementById("detalle-venta");
+        tbody.innerHTML = "";
+
+        if (carrito.length === 0) {
+          tbody.innerHTML = `<tr id="carrito-vacio"><td colspan="4" class="py-4 text-muted">No hay consumos.</td></tr>`;
+          document.getElementById("total-pagar").innerText = "$0.00";
+          return;
+        }
+
+        let total = 0;
+        carrito.forEach((p) => {
+          let subtotal = p.precio * p.cantidad;
+          total += subtotal;
+          tbody.innerHTML += `
+            <tr>
+                <td class="text-start text-truncate" style="max-width: 110px;">${p.nombre}</td>
+                <td>
+                    <div class="d-flex justify-content-center align-items-center gap-1">
+                        <button class="btn btn-sm btn-danger py-0 px-2 fw-bold" onclick="cambiarCantidad('${p.id}', -1)" style="font-size: 0.85rem;">-</button>
+                        <span class="fw-bold px-1" style="min-width: 18px; font-size: 0.9rem;">${p.cantidad}</span>
+                        <button class="btn btn-sm btn-success py-0 px-2 fw-bold" onclick="cambiarCantidad('${p.id}', 1)" style="font-size: 0.85rem;">+</button>
+                    </div>
+                </td>
+                <td class="text-warning">$${subtotal.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-sm text-danger p-0 border-0 bg-transparent" onclick="eliminarItem('${p.id}')" title="Eliminar artículo">
+                        <i class="fa-solid fa-circle-xmark fs-5"></i>
+                    </button>
+                </td>
+            </tr>
+          `;
+        });
+        document.getElementById("total-pagar").innerText = `$${total.toFixed(2)}`;
+      }
+
+      function procesarCobro() {
+        if (carrito.length === 0) {
+          alert("Agrega al menos una cerveza o artículo a la cuenta primero. 🍺");
+          return;
+        }
+
+        const nombreCliente = document.getElementById("cliente").value.trim() || "CONSUMIDOR FINAL";
+
+        const datosVenta = {
+          cliente: nombreCliente,
+          carrito: carrito,
+        };
+
+        fetch("/ventas/registrar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(datosVenta),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert(data.message); // "¡Venta y stock registrados correctamente! 🍻"
+              vaciarCarrito();
+              window.location.reload();
+            } else {
+              alert("Error: " + data.message);
+            }
+          })
+          .catch((error) => {
+            console.error("Error en la petición:", error);
+            alert("Hubo un problema de red al registrar el cobro. ❌");
+          });
+      }
+
+      // Esperar a que el HTML cargue y asociar los eventos automáticamente
+      document.addEventListener("DOMContentLoaded", function () {
+        initStockData();
+
+        function ejecutarAgregar(elemento) {
+          const id = elemento.getAttribute("data-id");
+          const nombre = elemento.getAttribute("data-nombre");
+
+          // Limpiamos la posible coma regional cambiándola por punto
+          let precioRaw = elemento.getAttribute("data-precio") || "0";
+          precioRaw = precioRaw.replace(",", ".");
+          const precio = parseFloat(precioRaw);
+
+          agregarAlCarrito(id, nombre, precio);
+        }
+
+        // Botones "Agregar" (escritorio + móvil)
+        document.querySelectorAll(".btn-agregar-pos").forEach((boton) => {
+          boton.addEventListener("click", function () {
+            ejecutarAgregar(this);
+          });
+        });
+
+        // Clic sobre la imagen/círculo del producto (escritorio + móvil)
+        document.querySelectorAll(".div-imagen-pos").forEach((divImg) => {
+          divImg.addEventListener("click", function () {
+            ejecutarAgregar(this);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
