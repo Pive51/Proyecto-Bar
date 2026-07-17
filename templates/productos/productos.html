@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BarPOS - Gestión de Productos</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
     <link
@@ -88,6 +88,12 @@
         color: #fff;
         box-shadow: 0 0 8px rgba(255, 193, 7, 0.4) !important;
       }
+      .form-control-custom:disabled {
+        background-color: #191c27 !important;
+        border-color: #2d3248 !important;
+        color: #9a9dab !important;
+        opacity: 1 !important;
+      }
       .badge-stock {
         padding: 8px 12px !important;
         border-radius: 8px !important;
@@ -101,6 +107,12 @@
         border-radius: 50%;
         border: 2px solid #ffc107;
       }
+
+      /* Aviso visual de "solo lectura" cuando el modal está en modo Ver */
+      #modalProducto.modo-ver #previewImagen,
+      #modalProducto.modo-ver .form-control-custom {
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -113,15 +125,14 @@
 
         <div>
           <button
-                class="btn btn-warning fw-bold"
-                data-bs-toggle="modal"
-                data-bs-target="#modalProducto">
-
-                <i class="fa fa-plus"></i>
-
-                Nuevo Producto
-
-            </button>
+            class="btn btn-warning fw-bold"
+            data-bs-toggle="modal"
+            data-bs-target="#modalProducto"
+            data-modo="crear"
+          >
+            <i class="fa fa-plus"></i>
+            Nuevo Producto
+          </button>
         </div>
       </div>
     </nav>
@@ -133,7 +144,6 @@
             <div class="col-md-8">
               <h2 class="text-warning">
                 <i class="fa fa-boxes"></i>
-
                 Inventario de Productos
               </h2>
 
@@ -153,33 +163,23 @@
           </div>
 
           <div class="table-responsive">
-            <table
-              class="table table-dark table-hover align-middle text-center"
-            >
+            <table class="table table-dark table-hover align-middle text-center">
               <thead>
                 <tr>
                   <th>Imagen</th>
-
                   <th>Código</th>
-
                   <th>Producto</th>
-
                   <th>Descripción</th>
-
                   <th>Precio</th>
-
                   <th>Stock</th>
-
                   <th>Mínimo</th>
-
                   <th>Acciones</th>
                 </tr>
               </thead>
 
               <tbody id="tablaProductos">
                 {% for p in productos %}
-
-                <tr>
+                <tr data-fila-busqueda="{{ (p.nombre ~ ' ' ~ p.codigo)|lower }}">
                   <td>
                     <img
                       src="/static/img/{{ p.imagen if p.imagen else 'placeholder.png' }}"
@@ -188,30 +188,44 @@
                   </td>
 
                   <td>{{ p.codigo }}</td>
-
                   <td class="fw-bold">{{ p.nombre }}</td>
-
                   <td>{{ p.descripcion }}</td>
-
                   <td>$ {{ "%.2f"|format(p.precio) }}</td>
 
                   <td>
-                    {% if p.stock<=p.stock_minimo %}
-
-                    <span class="badge bg-danger"> {{ p.stock }} </span>
-
+                    {% if p.stock <= p.stock_minimo %}
+                    <span class="badge badge-stock bg-danger">{{ p.stock }}</span>
                     {% else %}
-
-                    <span class="badge bg-success"> {{ p.stock }} </span>
-
+                    <span class="badge badge-stock bg-success">{{ p.stock }}</span>
                     {% endif %}
                   </td>
 
                   <td>{{ p.stock_minimo }}</td>
 
-                  <td>
+                  <td class="text-nowrap">
+                    <button
+                      class="btn btn-outline-light btn-sm btnVer"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalProducto"
+                      data-modo="ver"
+                      data-id="{{ p.id }}"
+                      data-codigo="{{ p.codigo }}"
+                      data-nombre="{{ p.nombre }}"
+                      data-descripcion="{{ p.descripcion }}"
+                      data-precio="{{ p.precio }}"
+                      data-stock="{{ p.stock }}"
+                      data-minimo="{{ p.stock_minimo }}"
+                      data-imagen="{{ p.imagen }}"
+                      title="Ver detalle"
+                    >
+                      <i class="fa fa-eye"></i>
+                    </button>
+
                     <button
                       class="btn btn-info btn-sm btnEditar"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalProducto"
+                      data-modo="editar"
                       data-id="{{ p.id }}"
                       data-codigo="{{ p.codigo }}"
                       data-nombre="{{ p.nombre }}"
@@ -222,7 +236,6 @@
                       data-imagen="{{ p.imagen }}"
                     >
                       <i class="fa fa-edit"></i>
-
                       Editar
                     </button>
 
@@ -232,12 +245,10 @@
                       data-nombre="{{ p.nombre }}"
                     >
                       <i class="fa fa-trash"></i>
-
                       Eliminar
                     </button>
                   </td>
                 </tr>
-
                 {% endfor %}
               </tbody>
             </table>
@@ -245,23 +256,23 @@
         </div>
       </div>
     </div>
-    <!-- ===================== MODAL PRODUCTO ====================== -->
-    <div class="modal fade" id="modalProducto" tabindex="-1">
+
+    <!-- ===================== MODAL PRODUCTO (crear / editar / ver) ====================== -->
+    <div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content modal-content-custom">
           <form id="formProducto" method="POST" enctype="multipart/form-data">
             <input type="hidden" id="producto_id" name="id" />
-
             <input type="hidden" id="imagen_actual" name="imagen_actual" />
 
-            <div class="modal-header">
+            <div class="modal-header border-0">
               <h4 class="modal-title text-warning fw-bold" id="tituloModal">
                 <i class="fa fa-box"></i>
-
                 Nuevo Producto
               </h4>
 
               <button
+                type="button"
                 class="btn-close btn-close-white"
                 data-bs-dismiss="modal"
               ></button>
@@ -296,7 +307,6 @@
                 <div class="col-md-8">
                   <div class="mb-3">
                     <label>Código</label>
-
                     <input
                       class="form-control form-control-custom"
                       id="codigo"
@@ -307,7 +317,6 @@
 
                   <div class="mb-3">
                     <label>Nombre</label>
-
                     <input
                       class="form-control form-control-custom"
                       id="nombre"
@@ -318,7 +327,6 @@
 
                   <div class="mb-3">
                     <label>Descripción</label>
-
                     <input
                       class="form-control form-control-custom"
                       id="descripcion"
@@ -329,7 +337,6 @@
                   <div class="row">
                     <div class="col-md-4">
                       <label>Precio</label>
-
                       <input
                         type="number"
                         step="0.01"
@@ -342,7 +349,6 @@
 
                     <div class="col-md-4">
                       <label>Stock</label>
-
                       <input
                         type="number"
                         class="form-control form-control-custom"
@@ -354,7 +360,6 @@
 
                     <div class="col-md-4">
                       <label>Stock mínimo</label>
-
                       <input
                         type="number"
                         class="form-control form-control-custom"
@@ -369,18 +374,17 @@
               </div>
             </div>
 
-            <div class="modal-footer">
+            <div class="modal-footer border-0">
               <button
                 type="button"
                 class="btn btn-secondary"
                 data-bs-dismiss="modal"
               >
-                Cancelar
+                Cerrar
               </button>
 
-              <button id="btnGuardar" class="btn btn-warning fw-bold">
+              <button type="submit" id="btnGuardar" class="btn btn-warning fw-bold">
                 <i class="fa fa-save"></i>
-
                 Guardar
               </button>
             </div>
@@ -389,7 +393,132 @@
       </div>
     </div>
 
-    <!-- =========================================================== -->
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const modalProductoEl = document.getElementById("modalProducto");
+      const modalProducto = new bootstrap.Modal(modalProductoEl);
+      const form = document.getElementById("formProducto");
+      const tituloModal = document.getElementById("tituloModal");
+      const btnGuardar = document.getElementById("btnGuardar");
+      const inputFile = document.getElementById("imagen");
+      const previewImagen = document.getElementById("previewImagen");
+
+      function alternarSoloLectura(soloLectura) {
+        form.querySelectorAll("input:not([type=hidden])").forEach((campo) => {
+          campo.disabled = soloLectura;
+        });
+        btnGuardar.classList.toggle("d-none", soloLectura);
+      }
+
+      // Se dispara justo antes de que Bootstrap abra el modal (crear / editar / ver)
+      modalProductoEl.addEventListener("show.bs.modal", function (evento) {
+        const boton = evento.relatedTarget;
+        const modo = boton?.dataset?.modo || "crear";
+        modalProductoEl.classList.toggle("modo-ver", modo === "ver");
+
+        if (modo === "crear") {
+          form.reset();
+          document.getElementById("producto_id").value = "";
+          document.getElementById("imagen_actual").value = "";
+          previewImagen.src = "/static/img/placeholder.png";
+          tituloModal.innerHTML = '<i class="fa fa-box"></i> Nuevo Producto';
+          alternarSoloLectura(false);
+          return;
+        }
+
+        // editar o ver: precargamos los datos del producto seleccionado
+        document.getElementById("producto_id").value = boton.dataset.id;
+        document.getElementById("codigo").value = boton.dataset.codigo;
+        document.getElementById("nombre").value = boton.dataset.nombre;
+        document.getElementById("descripcion").value = boton.dataset.descripcion;
+        document.getElementById("precio").value = boton.dataset.precio;
+        document.getElementById("stock").value = boton.dataset.stock;
+        document.getElementById("stock_minimo").value = boton.dataset.minimo;
+        document.getElementById("imagen_actual").value = boton.dataset.imagen || "";
+
+        previewImagen.src = boton.dataset.imagen
+          ? `/static/img/${boton.dataset.imagen}`
+          : "/static/img/placeholder.png";
+
+        if (modo === "editar") {
+          tituloModal.innerHTML = '<i class="fa fa-edit"></i> Editar Producto';
+          alternarSoloLectura(false);
+        } else {
+          tituloModal.innerHTML = '<i class="fa fa-eye"></i> Detalle del Producto';
+          alternarSoloLectura(true);
+        }
+      });
+
+      // Vista previa de la imagen al elegir un archivo nuevo
+      inputFile.addEventListener("change", function (e) {
+        const archivo = e.target.files[0];
+        if (!archivo) return;
+        const lector = new FileReader();
+        lector.onload = (ev) => (previewImagen.src = ev.target.result);
+        lector.readAsDataURL(archivo);
+      });
+
+      // Guardar producto (crear o editar) sin recargar la página completa
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const id = document.getElementById("producto_id").value;
+        const url = id ? `/productos/editar/${id}` : "/productos/crear";
+        const formData = new FormData(form);
+
+        btnGuardar.disabled = true;
+        fetch(url, { method: "POST", body: formData })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              modalProducto.hide();
+              window.location.reload();
+            } else {
+              alert("Error: " + (data.message || "No se pudo guardar el producto."));
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            alert("Hubo un problema de red al guardar el producto. ❌");
+          })
+          .finally(() => {
+            btnGuardar.disabled = false;
+          });
+      });
+
+      // Eliminar producto
+      document.querySelectorAll(".btnEliminar").forEach((boton) => {
+        boton.addEventListener("click", function () {
+          const id = this.dataset.id;
+          const nombre = this.dataset.nombre;
+
+          if (!confirm(`¿Seguro que deseas eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
+            return;
+          }
+
+          fetch(`/productos/eliminar/${id}`, { method: "POST" })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.success) {
+                window.location.reload();
+              } else {
+                alert("Error: " + (data.message || "No se pudo eliminar el producto."));
+              }
+            })
+            .catch((err) => {
+              console.error(err);
+              alert("Hubo un problema de red al eliminar el producto. ❌");
+            });
+        });
+      });
+
+      // Búsqueda en vivo por nombre o código
+      document.getElementById("buscarProducto").addEventListener("input", function (e) {
+        const texto = e.target.value.trim().toLowerCase();
+        document.querySelectorAll("#tablaProductos tr[data-fila-busqueda]").forEach((fila) => {
+          fila.style.display = fila.dataset.filaBusqueda.includes(texto) ? "" : "none";
+        });
+      });
+    </script>
   </body>
 </html>

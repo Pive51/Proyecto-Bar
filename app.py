@@ -5,14 +5,18 @@ from controllers.auth_controller import auth_blueprint
 from controllers.usuarios_controller import usuarios_blueprint
 from controllers.ventas_controller import ventas_blueprint
 from controllers.productos_controller import productos_blueprint
+from controllers.gastos_controller import gastos_blueprint
 
+# Crear la aplicación
 app = Flask(__name__)
 app.secret_key = "llave_secreta_bar_pos_ecuador_2026"
 
+# Registrar Blueprints
 app.register_blueprint(auth_blueprint, url_prefix="/auth")
 app.register_blueprint(usuarios_blueprint)
 app.register_blueprint(ventas_blueprint)
 app.register_blueprint(productos_blueprint)
+app.register_blueprint(gastos_blueprint)
 
 
 @app.route("/")

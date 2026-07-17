@@ -25,7 +25,7 @@ def listar_productos():
     if conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT Id, Codigo, Nombre, Descripcion, Precio, Stock, StockMinimo, Imagen 
+            SELECT Id, Codigo, Nombre, Descripcion, Precio, Stock, stock_minimo, Imagen 
             FROM Productos WHERE Estado = True ORDER BY Id DESC
         """)
         rows = cursor.fetchall()
